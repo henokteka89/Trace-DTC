@@ -11,6 +11,20 @@ CREATE TABLE #DTC_TraceResults (
     client_connection_id VARCHAR(50)
 );
 
+--table for logging 
+CREATE TABLE UtilityDatabase.dbo.DTC_TraceResults (
+    event_name VARCHAR(50),
+    transaction_id VARCHAR(50),
+    [time] DATETIME,
+    client_hostname VARCHAR(50),
+    client_app_name VARCHAR(50),
+    sql_text NVARCHAR(MAX),
+    session_id INT,
+    username VARCHAR(50),
+    client_connection_id VARCHAR(50),
+    CONSTRAINT PK_DTC_Trace PRIMARY KEY (transaction_id, [time]) -- Assuming transaction_id and time uniquely identify each record
+);
+
 -- Step 2: Insert Data into the Temporary Table
 INSERT INTO #DTC_TraceResults (event_name, transaction_id, [time], client_hostname, client_app_name, sql_text, session_id, username, client_connection_id)
 SELECT
