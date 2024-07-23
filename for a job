@@ -26,7 +26,38 @@ BEGIN
             WHERE existing.transaction_id = event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)')
               AND existing.[time] = event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime')
         );
+END;CREATE PROCEDURE UtilityDatabase.dbo.sp_LogDTCTraceResults
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insert new data into the table, checking for duplicates and handling null values
+    INSERT INTO UtilityDatabase.dbo.DTC_TraceResults (event_name, transaction_id, [time], client_hostname, client_app_name, sql_text, session_id, username, client_connection_id)
+    SELECT
+        event_data_xml.value('(event/@name)[1]', 'varchar(50)') AS event_name,
+        event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)') AS transaction_id,
+        event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime') AS [time],
+        event_data_xml.value('(event/action[@name="client_hostname"]/value)[1]', 'varchar(50)') AS client_hostname,
+        event_data_xml.value('(event/action[@name="client_app_name"]/value)[1]', 'varchar(50)') AS client_app_name,
+        event_data_xml.value('(event/action[@name="sql_text"]/value)[1]', 'nvarchar(max)') AS sql_text,
+        event_data_xml.value('(event/action[@name="session_id"]/value)[1]', 'int') AS session_id,
+        event_data_xml.value('(event/action[@name="username"]/value)[1]', 'varchar(50)') AS username,
+        event_data_xml.value('(event/action[@name="client_connection_id"]/value)[1]', 'varchar(50)') AS client_connection_id
+    FROM
+        sys.fn_xe_file_target_read_file('D:\DTC_Trace*.xel', NULL, NULL, NULL) 
+        CROSS APPLY (SELECT CAST(event_data AS XML) AS event_data_xml) AS x
+    WHERE
+        event_data_xml.value('(event/@name)[1]', 'varchar(50)') IN ('dtc_transaction', 'dtc_transaction_recovery')
+        AND event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)') IS NOT NULL
+        AND event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime') IS NOT NULL
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM UtilityDatabase.dbo.DTC_TraceResults AS existing
+            WHERE existing.transaction_id = event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)')
+              AND existing.[time] = event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime')
+        );
 END;
+
 
 --run the sp 
 EXEC databasename.dbo.sp_LogDTCTraceResults;
