@@ -26,6 +26,12 @@ CREATE TABLE UtilityDatabase.dbo.DTC_TraceResults (
 );
 
 -- Step 2: Insert Data into the Temporary Table
+/*
+-- if the below insert gives you a hard time add quoted_identifier before it
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+*/
 INSERT INTO #DTC_TraceResults (event_name, transaction_id, [time], client_hostname, client_app_name, sql_text, session_id, username, client_connection_id)
 SELECT
     event_data_xml.value('(event/@name)[1]', 'varchar(50)') AS event_name,
