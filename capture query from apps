@@ -1,4 +1,4 @@
-CREATE EVENT SESSION DTC_Trace_new
+CREATE EVENT SESSION LightDTC_Trace 
 ON SERVER 
 ADD EVENT sqlserver.dtc_transaction
 (
@@ -8,41 +8,25 @@ ADD EVENT sqlserver.dtc_transaction_recovery
 (
     ACTION (sqlserver.client_hostname, sqlserver.client_app_name, sqlserver.sql_text, sqlserver.session_id, sqlserver.username, sqlserver.client_connection_id)
 ),
-ADD EVENT sqlserver.sql_batch_starting
-(
-    ACTION (sqlserver.client_hostname, sqlserver.client_app_name, sqlserver.sql_text, sqlserver.session_id, sqlserver.username, sqlserver.client_connection_id)
-),
-ADD EVENT sqlserver.sql_batch_completed
-(
-    ACTION (sqlserver.client_hostname, sqlserver.client_app_name, sqlserver.sql_text, sqlserver.session_id, sqlserver.username, sqlserver.client_connection_id)
-),
-ADD EVENT sqlserver.rpc_starting
-(
-    ACTION (sqlserver.client_hostname, sqlserver.client_app_name, sqlserver.sql_text, sqlserver.session_id, sqlserver.username, sqlserver.client_connection_id)
-),
 ADD EVENT sqlserver.rpc_completed
 (
     ACTION (sqlserver.client_hostname, sqlserver.client_app_name, sqlserver.sql_text, sqlserver.session_id, sqlserver.username, sqlserver.client_connection_id)
 )
-ADD TARGET package0.event_file (SET filename = 'D:\DTC_Trace_new.xel')
-WITH (MAX_MEMORY = 4096 KB, EVENT_RETENTION_MODE = ALLOW_SINGLE_EVENT_LOSS, MAX_DISPATCH_LATENCY = 30 SECONDS, MAX_EVENT_SIZE = 0 KB, MEMORY_PARTITION_MODE = NONE, TRACK_CAUSALITY = ON, STARTUP_STATE = OFF);
+ADD TARGET package0.event_file (SET filename = 'D:\LightDTC_Trace.xel')
+WITH (MAX_MEMORY = 2048 KB, EVENT_RETENTION_MODE = ALLOW_SINGLE_EVENT_LOSS, MAX_DISPATCH_LATENCY = 60 SECONDS, MAX_EVENT_SIZE = 0 KB, MEMORY_PARTITION_MODE = NONE, TRACK_CAUSALITY = ON, STARTUP_STATE = OFF);
 GO
 
 -- Start the session
-ALTER EVENT SESSION DTC_Trace ON SERVER STATE = START;
+ALTER EVENT SESSION LightDTC_Trace ON SERVER STATE = START;
 
 
-
-
-
-
-CREATE PROCEDURE UtilityDatabase.dbo.sp_LogDTCTraceResults
+CREATE PROCEDURE UtilityDatabase.dbo.sp_LogLightDTCTraceResults
 AS
 BEGIN
     SET NOCOUNT ON;
 
     -- Insert new data into the table, checking for duplicates and handling null values
-    INSERT INTO UtilityDatabase.dbo.DTC_TraceResults (event_name, transaction_id, [time], client_hostname, client_app_name, sql_text, session_id, username, client_connection_id)
+    INSERT INTO UtilityDatabase.dbo.LightDTC_TraceResults (event_name, transaction_id, [time], client_hostname, client_app_name, sql_text, session_id, username, client_connection_id)
     SELECT
         event_data_xml.value('(event/@name)[1]', 'varchar(50)') AS event_name,
         event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)') AS transaction_id,
@@ -54,15 +38,15 @@ BEGIN
         event_data_xml.value('(event/action[@name="username"]/value)[1]', 'varchar(50)') AS username,
         event_data_xml.value('(event/action[@name="client_connection_id"]/value)[1]', 'varchar(50)') AS client_connection_id
     FROM
-        sys.fn_xe_file_target_read_file('D:\DTC_Trace*.xel', NULL, NULL, NULL) 
+        sys.fn_xe_file_target_read_file('D:\LightDTC_Trace*.xel', NULL, NULL, NULL) 
         CROSS APPLY (SELECT CAST(event_data AS XML) AS event_data_xml) AS x
     WHERE
-        event_data_xml.value('(event/@name)[1]', 'varchar(50)') IN ('dtc_transaction', 'dtc_transaction_recovery', 'sql_batch_starting', 'sql_batch_completed', 'rpc_starting', 'rpc_completed')
+        event_data_xml.value('(event/@name)[1]', 'varchar(50)') IN ('dtc_transaction', 'dtc_transaction_recovery', 'rpc_completed')
         AND event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)') IS NOT NULL
         AND event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime') IS NOT NULL
         AND NOT EXISTS (
             SELECT 1 
-            FROM UtilityDatabase.dbo.DTC_TraceResults AS existing
+            FROM UtilityDatabase.dbo.LightDTC_TraceResults AS existing
             WHERE existing.transaction_id = event_data_xml.value('(event/data[@name="transaction_id"]/value)[1]', 'varchar(50)')
               AND existing.[time] = event_data_xml.value('(event/data[@name="time"]/value)[1]', 'datetime')
         );
